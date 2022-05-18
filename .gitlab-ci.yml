@@ -1,0 +1,55 @@
+stages:
+  - bundle
+  - build
+  - test
+
+variables:
+  BUILDDIR: build
+
+.bundle:
+  image: docker:latest
+  stage: bundle
+  tags:
+    - build-amd64
+  script:
+    - docker build -f Dockerfile -t $CI_REGISTRY_IMAGE:build .
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker push "$CI_REGISTRY_IMAGE":build
+
+build:
+  stage: build
+  image: ubuntu:20.04
+  tags:
+    - build-amd64
+  before_script:
+    - export TZ=Europe/Warsaw
+    - ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+    - apt update -y
+    - apt install -y doxygen build-essential cmake git
+    - apt install -y libboost-all-dev
+  script:
+    - mkdir -p ${BUILDDIR} && cd ${BUILDDIR}
+    - cmake ..
+    - make
+  artifacts:
+    name: testlib
+    paths:
+      - ${BUILDDIR}/tests/testlib
+    expire_in: 5 days
+
+test:
+  stage: test
+  image: ubuntu:20.04
+  tags:
+    - build-amd64
+  before_script:
+    - cd ${BUILDDIR}/tests/
+    - ls -l
+    - export TZ=Europe/Warsaw
+    - ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+    - apt update -y
+    - apt install -y valgrind
+    - apt install -y libboost-all-dev
+  script:
+    - valgrind --tool=memcheck ./testlib
+  timeout: 24 hours
