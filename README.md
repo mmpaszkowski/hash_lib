@@ -1,3 +1,3 @@
-# hash_lib
+# crypto
 
 C++ implementation of hash algorithms.
